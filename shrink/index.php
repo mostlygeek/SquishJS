@@ -88,7 +88,7 @@ if (count($errors) > 0) {
  * 
  * Minified : <?php echo date('Y-m-d H:m:s'); echo "\n"?>
  * Fetch    : <?php echo $fetch?>s
- * Min Time : <?php echo $minTime?>s
+ * Minimize : <?php echo $minTime?>s
  * Size     : <?php echo $pct."% of original\n"; ?>
  */
 <?php echo $min; ?>
