@@ -7,22 +7,71 @@
 require_once('jsmin.php');
 header('Content-Type: text/javascript');
 
+$errors = array();
 if (!isset($_GET['f'])) {
-    echo '/** no file defined **/';
-    die();
+    $errors[] = "JavaScript file not defined";
+} else {
+    $url = $_GET['f'];
 }
 
 // load the file from the web
-$url = $_GET['f'];
-$start = microtime(true);
-$file = file_get_contents($url);
-$min = jsMin::minify($file);
-$end = round(microtime(true) - $start, 3);
+$parts = parse_url($_GET['f']);
 
+if ($parts === false) {
+    $errors[] = 'Invalid URL format';
+}
+
+
+if (is_array($parts)) {
+    
+    if (!in_array($parts['scheme'], array('http', 'https'))) {
+        $errors[] = 'Protocol must be http or https';
+    }
+
+    if (substr($parts['path'], -2) != 'js') {
+        $errors[] = 'File must end in .js'; 
+    }
+}
+
+if (count($errors) > 0) {
+    echo "/**\n * ERRORS: \n";
+    echo " * -------------------\n";
+    foreach ($errors as $key => $msg) {
+        printf(" * % 4s) %s\n", $key+1, $msg);
+    }
+    echo " **/";
+    die();
+} else {
+    $url = $parts['scheme'].'://'.$parts['host'].$parts['path'];
+}
+
+$start = microtime(true);
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $url);
+curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 5); // 5 second max
+curl_setopt($ch, CURLOPT_USERAGENT, 'SquishJS');
+
+$js = curl_exec($ch);
+$fetch = round(microtime(true) - $start, 3);
+
+$start = microtime(true);
+$min = jsMin::minify($js); // boy this is slow
+$minTime = round(microtime(true) - $start, 3);
+
+$olen = strlen($js);
+$nlen = strlen($min);
+$pct = round($nlen / $olen * 100);
 ?>
 /**
- * Minified by squishjs Alpha (http://someurl.com)
- * Date: <?php echo date('Y-m-d H:m:s'); echo "\n"?>
- * Speed: <?php echo $end?>s
+ * Minified by squishjs (oh so Alpha)
+ * http://squishjs.com
+ * 
+ * Minified : <?php echo date('Y-m-d H:m:s'); echo "\n"?>
+ * Fetch    : <?php echo $fetch?>s
+ * Min Time : <?php echo $minTime?>s
+ * Size     : <?php echo $pct."% of original\n"; ?>
  */
 <?php echo $min; ?>
