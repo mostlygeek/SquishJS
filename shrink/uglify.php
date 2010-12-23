@@ -4,7 +4,6 @@
  * and run it through jsmin
  *
  */
-require_once('jsmin.php');
 header('Content-Type: text/javascript');
 
 $errors = array();
@@ -62,12 +61,26 @@ if (empty($errors)) {
 
     if (empty($errors)) {
         $start = microtime(true);
-        $min = jsMin::minify($js); // boy this is slow
+        
+        $descriptor = array(
+            0 => array("pipe", "r"),
+	    1 => array("pipe", "w"), 
+	    2 => array("file", "/tmp/uglify-errors", "a")
+	);
+
+	$cwd = "/tmp";
+	$process = proc_open('uglifyjs -nc', $descriptor, $pipes, $cwd);
+
+        fwrite($pipes[0], $js);
+	fclose($pipes[0]); 
+	$min = stream_get_contents($pipes[1]);
+	fclose($pipes[1]);
+
         $minTime = round(microtime(true) - $start, 3);
 
         $olen = strlen($js);
         $nlen = strlen($min);
-        $pct = round($nlen / $olen * 100);
+        $diff = $olen - $nlen;
     }
 }
 
@@ -83,12 +96,12 @@ if (count($errors) > 0) {
 
 ?>
 /**
- * Minified by squishjs (oh so Alpha)
+ * Minified by squishjs (Alpha) using uglifyjs
  * http://squishjs.com
  * 
  * Minified : <?php echo date('Y-m-d H:m:s'); echo "\n"?>
  * Fetch    : <?php echo $fetch?>s
  * Minimize : <?php echo $minTime?>s
- * Size     : <?php echo $pct."% of original\n"; ?>
+ * Size     : <?php echo "$olen => $nlen, $diff saved\n"?>
  */
 <?php echo $min; ?>
