@@ -7,8 +7,11 @@
  * How this should work: 
  * 
  * 1. Read the GET data from http.server,
+ *    - http://server/squish/?file=http://..../whatever.js&type=(jsmin|uglify)
  * 2. fetch the file from the remote server
- * 3. minify, or uglify it
+ *    - check that the content type is text/javascript
+ * 3. uglify it
+ *    -
  * 4. return the output w/ squishjs headers
  *
  */
