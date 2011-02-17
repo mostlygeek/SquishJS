@@ -1,17 +1,22 @@
 <?php
-require_once('../libs/decodeUri.php');
-header('Content-type: text/javascript');
+//sleep(3); // introduce some latency for testing
 
+require_once('../libs/decodeUri.php');
+require_once('../libs/jsminplus.php');
+
+header('Content-type: text/javascript');
 
 $now = new DateTime('now', new DateTimeZone('UTC'));
 $messages = array('Generated: '.$now->format(DATE_ISO8601));
+
+$messages[] = microtime(true);
 
 $errorHttpCode = 400; 
 $errors = array();
 $source = ''; 
 
 /**
- * STEP 1. Check sub-domain (user account) is valid and active
+ * STEP 1. Check sub-domain (user account) is valid and active.
  */
 $host = str_replace($_SERVER['SERVER_NAME'], '', $_SERVER['HTTP_HOST']); 
 if ($host == '') {
@@ -105,25 +110,36 @@ if ($errors) {
 }
 
 /**
- * STEP 4: Uglify the javascript
+ * STEP 4: Minimize the JS
  */
-$descriptor = array(
-    0 => array("pipe", "r"),
-    1 => array("pipe", "w"),
-    2 => array("file", "/tmp/uglify-errors", "a")
-);
 
-$cwd = "/tmp";
 $start = microtime(true);
-$process = proc_open(
-        '/var/web-projects/squishjs/uri-parser/uglifyjs -nc',
-        $descriptor, $pipes, $cwd);
-fwrite($pipes[0], $source);
-fclose($pipes[0]);
-$minimizedSource = stream_get_contents($pipes[1]);
-fclose($pipes[1]);
+
+if ($_GET['minifier'] == 'uglifyjs') {
+    // Use Uglify.js
+    $descriptor = array(
+        0 => array("pipe", "r"),
+        1 => array("pipe", "w"),
+        2 => array("file", "/tmp/uglify-errors", "a")
+    );
+
+    $cwd = "/tmp";
+    $process = proc_open(
+            '/var/web-projects/squishjs/uri-parser/uglifyjs -nc',
+            $descriptor, $pipes, $cwd);
+    fwrite($pipes[0], $source);
+    fclose($pipes[0]);
+    $minimizedSource = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    $messages[] = 'uglifyjs';
+} else {
+    $minimizedSource = JSMinPlus::minify($source);
+    $messages[] = 'jsminplus';
+}
+
 $total = round(microtime(true)-$start, 4);
 $messages[] = 'JS Size: '.strlen($minimizedSource);
+
 /**
  * Do some error checking here...
  */
